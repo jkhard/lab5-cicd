@@ -37,17 +37,25 @@ def test_create_user_with_valid_email():
         'email': 'i.sidor@mail.com'
     }
     response = client.post("/api/v1/user", json=new_user)
-    assert response.status_code == 201    
-    created_user = response.json()
+    assert response.status_code == 201
     
+    # API возвращает только id созданного пользователя (число)
+    user_id = response.json()
+    assert isinstance(user_id, int)  # проверяем, что вернулся id
+    
+    # Проверяем, что пользователь действительно создался
+    get_response = client.get("/api/v1/user", params={'email': new_user['email']})
+    assert get_response.status_code == 200
+    created_user = get_response.json()
     assert created_user['name'] == new_user['name']
     assert created_user['email'] == new_user['email']
-    assert 'id' in created_user
+    assert created_user['id'] == user_id
 
 def test_create_user_with_invalid_email():
+    '''Создание пользователя с уже существующей почтой'''
     duplicate_user = {
         'name': 'Duplicate Name',
-        'email': users[0]['email']  
+        'email': users[0]['email']  # email уже существует
     }
     
     response = client.post("/api/v1/user", json=duplicate_user)
@@ -57,6 +65,7 @@ def test_create_user_with_invalid_email():
 
 def test_delete_user():
     '''Удаление пользователя'''
+    # Сначала создаём пользователя для удаления
     new_user = {
         'name': 'User To Delete',
         'email': 'todelete@mail.com'
@@ -65,11 +74,10 @@ def test_delete_user():
     create_response = client.post("/api/v1/user", json=new_user)
     assert create_response.status_code == 201
     
-    user_id = create_response.json()['id']
+    # Удаляем пользователя по email (не по id!)
+    delete_response = client.delete("/api/v1/user", params={'email': new_user['email']})
+    assert delete_response.status_code == 204  # No Content
     
-    delete_response = client.delete(f"/api/v1/user/{user_id}")
-
-    assert delete_response.status_code == 200
-    assert "message" in delete_response.json()
+    # Проверяем, что пользователь действительно удалён
     get_response = client.get("/api/v1/user", params={'email': new_user['email']})
     assert get_response.status_code == 404
